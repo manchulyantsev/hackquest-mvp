@@ -8,7 +8,6 @@ Validates: Requirements 1.5, 3.3, 3.4, 3.5, 4.3, 4.4, 4.5, 5.3, 5.4, 5.5,
            6.3, 6.4, 6.5, 11.1, 11.2, 12.1, 12.2, 12.4
 """
 
-import base64
 import copy
 import logging
 from datetime import datetime
@@ -36,53 +35,6 @@ st.set_page_config(
     page_icon="⚔️",
     layout="wide"
 )
-
-
-def encode_credentials(team_name, pin):
-    """Encode team credentials for URL parameter."""
-    credentials = f"{team_name}:{pin}"
-    encoded = base64.b64encode(credentials.encode()).decode()
-    return encoded
-
-
-def decode_credentials(encoded):
-    """Decode team credentials from URL parameter."""
-    try:
-        decoded = base64.b64decode(encoded.encode()).decode()
-        team_name, pin = decoded.split(":", 1)
-        return team_name, pin
-    except:
-        return None, None
-
-
-def auto_login_from_url(sheets_client):
-    """Attempt to auto-login from URL query parameters."""
-    query_params = st.query_params
-    
-    if "auth" in query_params:
-        encoded_auth = query_params["auth"]
-        team_name, pin = decode_credentials(encoded_auth)
-        
-        if team_name and pin:
-            try:
-                team_data = authenticate_team(team_name, pin, sheets_client)
-                
-                if team_data is not None:
-                    # Authentication successful
-                    st.session_state.authenticated = True
-                    st.session_state.team_name = team_data["team_name"]
-                    st.session_state.stage = team_data["stage"]
-                    st.session_state.xp = team_data["xp"]
-                    st.session_state.level = team_data["xp"] // 100
-                    st.session_state.idea_text = team_data["idea_text"]
-                    st.session_state.roles_text = team_data["roles_text"]
-                    st.session_state.github_link = team_data["github_link"]
-                    st.session_state.pitch_link = team_data["pitch_link"]
-                    return True
-            except Exception as e:
-                logger.error(f"Auto-login error: {e}")
-    
-    return False
 
 
 def initialize_session_state():
@@ -231,10 +183,6 @@ def handle_authentication(sheets_client):
                 st.session_state.github_link = team_data["github_link"]
                 st.session_state.pitch_link = team_data["pitch_link"]
                 
-                # Add encoded credentials to URL for persistent login
-                encoded_auth = encode_credentials(team_name, pin)
-                st.query_params["auth"] = encoded_auth
-                
                 st.sidebar.success(f"Welcome, {team_name}!")
                 st.rerun()
                 
@@ -375,10 +323,6 @@ def main():
         logger.error(f"Failed to load configuration: {e}")
         return
     
-    # Attempt auto-login from URL parameters
-    if not st.session_state.authenticated:
-        auto_login_from_url(sheets_client)
-    
     # Render sidebar authentication
     if not st.session_state.authenticated:
         render_sidebar_auth()
@@ -395,8 +339,6 @@ def main():
         st.sidebar.metric("Current Stage", st.session_state.stage)
         
         if st.sidebar.button("Logout"):
-            # Clear query params
-            st.query_params.clear()
             # Clear session state
             for key in list(st.session_state.keys()):
                 del st.session_state[key]
